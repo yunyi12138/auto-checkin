@@ -1,3 +1,4 @@
+import requests
 import os
 import time
 import ddddocr
@@ -182,6 +183,7 @@ def login_and_checkin():
                 if btn.is_visible(timeout=3000):
                     btn.click()
                     print("📅 已点击 '签到' 按钮 (文字匹配)")
+                    send_notification("📅 已点击 '签到' 按钮 (文字匹配)")
                     sign_success = True
             except Exception as e:
                 print(f"文字匹配失败: {e}")
@@ -215,17 +217,29 @@ def login_and_checkin():
             final_content = page.content()
             if '签到成功' in final_content or '今日已签' in final_content:
                 print("🎉 签到任务完成！")
+                send_notification("🎉 签到任务完成！")
                
             else:
                 print("❓ 签到结果未知，请手动查看网页。")
+                send_notification("❓ 签到结果未知，请手动查看网页。")
              
         except Exception as e:
             print(f"💥 发生异常: {e}")
+            send_notification("💥 发生异常")
             page.screenshot(path='error_screenshot.png')
             raise
         finally:
             browser.close()
             print("🏁 任务结束")
+def send_notification(message):
+    """发送签到结果到 PushPlus"""
+    token = "2233aeef235640b1a053592fc91e02b1"  # 替换成你刚才复制的 Token
+    url = f"http://www.pushplus.plus/send?token={token}&title=签到结果&content={message}"
+    try:
+        requests.get(url)
+        print("📱 通知已发送")
+    except Exception as e:
+        print(f"通知发送失败: {e}")
 
 if __name__ == '__main__':
     login_and_checkin()
