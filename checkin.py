@@ -19,7 +19,7 @@ def login_and_checkin():
     """执行登录和签到"""
     with sync_playwright() as p:
         # 本地测试可将 headless 改为 False，并加上 slow_mo 观察
-        browser = p.chromium.launch(headless=False,slow_mo=500)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
         print("🚀 开始执行签到任务...")
