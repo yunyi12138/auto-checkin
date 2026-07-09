@@ -20,7 +20,7 @@ def login_and_checkin():
     """执行登录和签到"""
     with sync_playwright() as p:
         # 本地测试可将 headless 改为 False，并加上 slow_mo 观察
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=False,slow_mo=500)
         page = browser.new_page()
         
         print("🚀 开始执行签到任务...")
@@ -177,51 +177,37 @@ def login_and_checkin():
             sign_success = False
 
             # 策略1：匹配文本“签到”（最通用）
-            try:
-                # 查找所有包含“签到”文字的元素，取第一个可见的
-                btn = page.locator('//*[contains(text(), "签到")]').first
-                if btn.is_visible(timeout=3000):
-                    btn.click()
-                    print("📅 已点击 '签到' 按钮 (文字匹配)")
-                    send_notification("📅 已点击 '签到' 按钮 (文字匹配)")
-                    sign_success = True
-            except Exception as e:
-                print(f"文字匹配失败: {e}")
-
-            # 策略2：如果策略1失败，尝试特定类名（Discuz! 签到插件常用）
-            if not sign_success:
-                try:
-                    # 常见签到按钮 class 或 id
-                    page.click('.sign_btn, .misign_btn, #sign_button, a[onclick*="sign"]', timeout=5000)
-                    print("📅 已点击 '签到' 按钮 (类名/属性匹配)")
-                    sign_success = True
-                except Exception as e:
-                    print(f"类名匹配失败: {e}")
-
-            # 策略3：如果都失败，检查是否已经签到
-            if not sign_success:
-                page_content = page.content()
-                if '今日已签' in page_content or '已签到' in page_content or '您已签到' in page_content:
-                    print("ℹ️ 今日已签到，无需重复签到")
-                    sign_success = True  # 标记为已处理
-                else:
-                    # 实在找不到，保存现场供调试
-                    print("⚠️ 仍未找到签到按钮，保存调试文件...")
-                    with open('debug_page.html', 'w', encoding='utf-8') as f:
-                        f.write(page.content())
-                    page.screenshot(path='checkin_page.png')
-                    print("📁 已保存 debug_page.html 和截图，请检查")
-
-            # ---------- 7. 最终结果确认 ----------
+                        # ---------- 5. 执行签到 ----------
+            print("📍 正在跳转到签到页...")
+            page.goto(CHECKIN_URL)
+            page.wait_for_load_state('networkidle')
             time.sleep(3)
-            final_content = page.content()
-            if '签到成功' in final_content or '今日已签' in final_content:
-                print("🎉 签到任务完成！")
-                send_notification("🎉 签到任务完成！")
-               
+
+            # 检查是否已经签到
+            page_content = page.content()
+            if '您的签到排名' in page_content or '已签到' in page_content:
+                print("ℹ️ 今日已签到，无需重复签到")
+                send_notification("ℹ️ GameMale 今日已签到，无需重复")
             else:
-                print("❓ 签到结果未知，请手动查看网页。")
-                send_notification("❓ 签到结果未知，请手动查看网页。")
+                # 直接通过 id 点击签到按钮（你提供的元素）
+                try:
+                    page.click('#JD_sign')
+                    print("✅ 已点击签到按钮")
+                    time.sleep(3)  # 等待 AJAX 响应和页面刷新
+                    
+                    # 再次检查是否签到成功
+                    final_content = page.content()
+                    if '签到成功' in final_content or '您的签到排名' in final_content:
+                        print("🎉 签到成功！")
+                        send_notification("✅ GameMale 签到成功！")
+                    else:
+                        print("⚠️ 点击后未检测到签到成功，可能已签或网络延迟")
+                        send_notification("⚠️ GameMale 签到可能失败，请检查")
+                        
+                except Exception as e:
+                    print(f"❌ 点击签到按钮失败: {e}")
+                    page.screenshot(path='sign_failed.png')
+                    send_notification(f"❌ GameMale 签到异常: {e}")
              
         except Exception as e:
             print(f"💥 发生异常: {e}")
